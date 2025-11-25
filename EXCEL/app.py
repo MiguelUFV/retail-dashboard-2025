@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import os # <--- NUEVO: Para encontrar el archivo en la nube sin errores
 
 # ==============================================================================
 # 1. CONFIGURACIÓN VISUAL (ESTILO NEON DARK)
@@ -13,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Paleta de Colores Personalizada (Vibrante sobre fondo oscuro)
+# Paleta de Colores Personalizada
 COLOR_PALETTE = ['#2E86C1', '#E74C3C', '#1ABC9C', '#9B59B6', '#F1C40F', '#E67E22']
 
 st.markdown("""
@@ -49,17 +50,22 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. CARGAR DATOS
+# 2. CARGAR DATOS (CORREGIDO PARA LA NUBE)
 # ==============================================================================
 @st.cache_data
 def load_data():
-    return pd.read_excel("Datos_Retail_Pro.xlsx")
+    # Esta lógica busca el archivo en la MISMA carpeta que el script,
+    # da igual si está en tu PC o en la carpeta EXCEL de GitHub.
+    ruta_actual = os.path.dirname(os.path.abspath(__file__))
+    ruta_archivo = os.path.join(ruta_actual, "Datos_Retail_Pro.xlsx")
+    
+    return pd.read_excel(ruta_archivo)
 
 try:
     df = load_data()
     df["Fecha"] = pd.to_datetime(df["Fecha"])
-except:
-    st.error("⚠️ Error: Ejecuta 'python generador_retail.py' primero.")
+except Exception as e:
+    st.error(f"⚠️ Error crítico: No encuentro el archivo Excel. Detalle: {e}")
     st.stop()
 
 # ==============================================================================
@@ -121,7 +127,7 @@ if pagina == "1. Visión CEO (Interactivo)":
         # Barra Frente (Netas) - Usamos la paleta personalizada
         fig_bar.add_trace(go.Bar(
             x=df_rank["Marca"], y=df_rank["Netas"], name="Netas (Reales)",
-            marker_color=COLOR_PALETTE, # COLORES NUEVOS
+            marker_color=COLOR_PALETTE, 
             text=df_rank["Netas"].apply(lambda x: f"{x/1000:.0f}k"), textposition='inside'
         ))
         
@@ -148,7 +154,7 @@ if pagina == "1. Visión CEO (Interactivo)":
         fig_pie = px.pie(
             df_pie_data, values="Importe", names="Canal", 
             hole=0.6, template="plotly_dark",
-            color_discrete_sequence=COLOR_PALETTE # COLORES NUEVOS
+            color_discrete_sequence=COLOR_PALETTE 
         )
         fig_pie.update_layout(
             clickmode='event+select', showlegend=False, 
@@ -171,9 +177,8 @@ if pagina == "1. Visión CEO (Interactivo)":
         df_final = df_final[(df_final["Marca"] == sel_marca) | (df_final["Marca"] == "ESTRUCTURA")]
         filtros_txt.append(f"🏷️ Marca: {sel_marca}")
 
-    # 2. Filtro Canal (Mejorado para no perder costes fijos)
+    # 2. Filtro Canal
     if sel_canal:
-        # Mantenemos filas que coinciden con canal O que son costes estructurales/generales
         df_final = df_final[
             (df_final["Canal"] == sel_canal) | 
             (df_final["Marca"] == "ESTRUCTURA") |
@@ -259,7 +264,7 @@ elif pagina == "2. Financiero (P&L)":
         fig_ev = px.bar(
             df_ev, x="Mes", y=["Ingresos", "Gastos"], barmode="group", 
             template="plotly_dark", 
-            color_discrete_map={"Ingresos": "#1ABC9C", "Gastos": "#E74C3C"} # COLORES NUEVOS
+            color_discrete_map={"Ingresos": "#1ABC9C", "Gastos": "#E74C3C"} 
         )
         st.plotly_chart(fig_ev, use_container_width=True)
 
@@ -288,9 +293,9 @@ elif pagina == "3. Estrategia & Calidad":
             x = ["Brutas", "Devol.", "NETAS", "Coste", "Mkt", "Fijos", "BENEFICIO"],
             y = [ventas, devoluciones, 0, -c_ventas, -c_mkt, -c_fix, 0],
             connector = {"line":{"color":"white"}},
-            decreasing = {"marker":{"color":"#E74C3C"}}, # Rojo nuevo
-            increasing = {"marker":{"color":"#1ABC9C"}}, # Verde nuevo
-            totals = {"marker":{"color":"#2E86C1"}}      # Azul nuevo
+            decreasing = {"marker":{"color":"#E74C3C"}}, 
+            increasing = {"marker":{"color":"#1ABC9C"}}, 
+            totals = {"marker":{"color":"#2E86C1"}}      
         ))
         fig_water.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig_water, use_container_width=True)
